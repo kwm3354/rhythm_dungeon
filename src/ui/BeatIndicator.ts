@@ -8,14 +8,25 @@ export class BeatIndicator {
 
   // Визуальные элементы
   private pulseOverlay: Phaser.GameObjects.Rectangle;
+
+  // Пульсирующий круг
   private beatCircle: Phaser.GameObjects.Arc;
-  private progressArc: Phaser.GameObjects.Graphics;
+  private circleRing: Phaser.GameObjects.Arc;
+
+  // Константы позиционирования
+  private readonly panelX: number;
+  private readonly indicatorY: number = 160;
+
+  // Размеры круга
+  private readonly minRadius: number = 8;
+  private readonly maxRadius: number = 18;
 
   constructor(scene: Phaser.Scene, beatManager: BeatManager) {
     this.scene = scene;
     this.beatManager = beatManager;
+    this.panelX = GAME_CONFIG.GAME_WIDTH - GAME_CONFIG.PANEL_WIDTH / 2;
 
-    // Полупрозрачный оверлей для пульсации игрового поля (не панели)
+    // Полупрозрачный оверлей для пульсации игрового поля
     this.pulseOverlay = scene.add.rectangle(
       GAME_CONFIG.GAME_FIELD_WIDTH / 2,
       GAME_CONFIG.GAME_HEIGHT / 2,
@@ -26,67 +37,46 @@ export class BeatIndicator {
     );
     this.pulseOverlay.setDepth(50);
 
-    // Индикатор бита на правой панели (между комбо и BPM)
-    const indicatorX = GAME_CONFIG.GAME_WIDTH - GAME_CONFIG.PANEL_WIDTH / 2;
-    const indicatorY = 160; // Под комбо, над BPM
+    // Внешнее кольцо (статичное, показывает максимальный размер)
+    this.circleRing = scene.add.circle(this.panelX, this.indicatorY, this.maxRadius);
+    this.circleRing.setStrokeStyle(2, 0x444444);
+    this.circleRing.setFillStyle(0x000000, 0);
+    this.circleRing.setDepth(100);
 
-    // Фоновый круг
-    this.beatCircle = scene.add.circle(indicatorX, indicatorY, 15, 0x333333);
-    this.beatCircle.setDepth(100);
-    this.beatCircle.setStrokeStyle(2, 0x666666);
-
-    // Прогресс-арк
-    this.progressArc = scene.add.graphics();
-    this.progressArc.setDepth(101);
+    // Пульсирующий круг (растёт к биту)
+    this.beatCircle = scene.add.circle(this.panelX, this.indicatorY, this.minRadius, 0x4fc3f7);
+    this.beatCircle.setDepth(101);
 
     // Подписываемся на бит
     beatManager.onBeat(() => this.onBeat());
   }
 
   update(): void {
-    this.updateProgressArc();
+    this.updatePulse();
   }
 
   private onBeat(): void {
-    // Пульсация индикатора (не трогаем overlay - он для feedback)
-    this.scene.tweens.killTweensOf(this.beatCircle);
-    this.beatCircle.setScale(1);
+    // Вспышка на бит
+    this.beatCircle.setFillStyle(0xffffff);
+    this.circleRing.setStrokeStyle(2, 0x4fc3f7);
 
-    this.scene.tweens.add({
-      targets: this.beatCircle,
-      scaleX: 1.3,
-      scaleY: 1.3,
-      duration: 50,
-      yoyo: true,
-      ease: 'Sine.easeOut',
-      onComplete: () => {
-        this.beatCircle.setScale(1);
-      },
-    });
-
-    // Вспышка цвета
-    this.beatCircle.setFillStyle(0x4fc3f7);
     this.scene.time.delayedCall(100, () => {
-      this.beatCircle.setFillStyle(0x333333);
+      this.beatCircle.setFillStyle(0x4fc3f7);
+      this.circleRing.setStrokeStyle(2, 0x444444);
     });
   }
 
-  private updateProgressArc(): void {
+  private updatePulse(): void {
     const progress = this.beatManager.getBeatProgress();
-    const indicatorX = GAME_CONFIG.GAME_WIDTH - GAME_CONFIG.PANEL_WIDTH / 2;
-    const indicatorY = 160; // Под комбо, над BPM
-    const radius = 15;
 
-    this.progressArc.clear();
+    // Круг растёт от minRadius до maxRadius по мере приближения к биту
+    // progress 0 → minRadius, progress 1 → maxRadius
+    const radius = this.minRadius + (this.maxRadius - this.minRadius) * progress;
+    this.beatCircle.setRadius(radius);
 
-    // Рисуем прогресс-дугу
-    const startAngle = -Math.PI / 2; // Начинаем сверху
-    const endAngle = startAngle + progress * Math.PI * 2;
-
-    this.progressArc.lineStyle(3, 0x4fc3f7, 0.8);
-    this.progressArc.beginPath();
-    this.progressArc.arc(indicatorX, indicatorY, radius, startAngle, endAngle, false);
-    this.progressArc.strokePath();
+    // Прозрачность тоже растёт для усиления эффекта
+    const alpha = 0.5 + 0.5 * progress;
+    this.beatCircle.setAlpha(alpha);
   }
 
   /**
@@ -99,7 +89,7 @@ export class BeatIndicator {
       miss: 0xe57373,    // Красный
     };
 
-    // Останавливаем предыдущие твины чтобы избежать конфликтов
+    // Останавливаем предыдущие твины
     this.scene.tweens.killTweensOf(this.pulseOverlay);
 
     // Сбрасываем состояние
