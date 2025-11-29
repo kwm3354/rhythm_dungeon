@@ -1,47 +1,68 @@
 # Rhythm Dungeon
 
-A browser-based pixel-art rhythm game inspired by Crypt of the NecroDancer.
+Браузерная пиксель-арт ритм-игра в стиле Crypt of the NecroDancer.
 
-![Gameplay Demo](demo.gif)
+## Особенности
 
-## Features
+- **Двигайся только в такт** — тайминг решает всё!
+- **11 героев** на выбор (маги, рыцари, эльфы, гномы, ящеры, ангел)
+- **Комбо-система** награждает за точные попадания
+- **Статистика уровня** с грейдами S/A/B/C/D
+- **Процедурная генерация** комнат
+- **Аудио-визуализатор** реагирует на музыку
+- **Пульсирующий индикатор бита** для визуализации ритма
 
-- Move only on the beat - timing is everything!
-- Collect all coins to unlock the exit
-- Avoid patrolling enemies... until they start chasing you!
-- Combo system rewards perfect timing
-- Audio visualizer reacts to the music
+## Как играть
 
-## How to Play
+1. **WASD** или **стрелки** — движение
+2. Двигайся **только на бит** — следи за пульсирующим кругом на панели
+3. Собери все монеты, чтобы открыть выход
+4. Осторожно: после сбора всех монет враги начнут охоту!
 
-- Use **WASD** or **Arrow keys** to move
-- Move **only on the beat** - watch the indicator in the top-right corner
-- Collect all coins to open the exit
-- Warning: after collecting all coins, enemies will hunt you down!
+## Механики
 
-## Tech Stack
+### Ритм-система
+- Каждое движение должно быть в такт музыке
+- **Perfect** (зелёный) — идеальное попадание
+- **Good** (жёлтый) — хорошее попадание
+- **Miss** (красный) — промах, сброс комбо
 
-- [Phaser 3](https://phaser.io/) - Game framework
+### Звуки действий
+Каждое направление воспроизводит свой звук:
+- ↑ (W) — Kick
+- ↓ (S) — Snare
+- ← (A) / → (D) — Toms
+- Сбор монеты — Hi-hat
+
+### Прогрессия
+- С каждым уровнем меняется стиль пола
+- Случайные враги на каждом уровне
+- BPM увеличивается с прогрессом
+
+## Технологии
+
+- [Phaser 3](https://phaser.io/) — игровой фреймворк
 - TypeScript
-- Vite - Build tool
+- Vite — сборка
 
-## Assets
+## Ассеты
 
-- Sprites: [DungeonTileset II by 0x72](https://0x72.itch.io/dungeontileset-ii) (CC0)
+- Спрайты: [DungeonTileset II by 0x72](https://0x72.itch.io/dungeontileset-ii) (CC0)
+- Музыка: Suno AI
 
-## Development
+## Разработка
 
 ```bash
-# Install dependencies
+# Установка зависимостей
 npm install
 
-# Run development server
+# Запуск dev-сервера
 npm run dev
 
-# Build for production
+# Сборка для продакшена
 npm run build
 ```
 
-## License
+## Лицензия
 
 MIT
