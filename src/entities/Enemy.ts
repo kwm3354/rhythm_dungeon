@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME_CONFIG } from '../config';
+import { EnemyType } from '../scenes/BootScene';
 
 interface PatrolPoint {
   x: number;
@@ -12,26 +13,28 @@ export class Enemy {
   private tileX: number;
   private tileY: number;
   private isMoving: boolean = false;
+  private enemyType: EnemyType;
 
   // Патрулирование
   private patrolPoints: PatrolPoint[] = [];
   private currentPatrolIndex: number = 0;
   private patrolDirection: number = 1; // 1 = вперёд, -1 = назад
 
-  constructor(scene: Phaser.Scene, startX: number, startY: number, patrolPoints: PatrolPoint[]) {
+  constructor(scene: Phaser.Scene, startX: number, startY: number, patrolPoints: PatrolPoint[], enemyType: EnemyType = 'imp') {
     this.scene = scene;
     this.tileX = startX;
     this.tileY = startY;
     this.patrolPoints = patrolPoints;
+    this.enemyType = enemyType;
 
     const pixelX = startX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
     const pixelY = startY * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
 
-    this.sprite = scene.add.sprite(pixelX, pixelY, 'imp_idle_0');
+    this.sprite = scene.add.sprite(pixelX, pixelY, `${enemyType}_idle_0`);
     this.sprite.setOrigin(0.5, 0.85);
     this.sprite.setDepth(10);
     this.sprite.setScale(2); // Масштаб для 32px тайлов
-    this.sprite.play('enemy_idle');
+    this.sprite.play(`${enemyType}_idle`);
   }
 
   getTileX(): number {
@@ -96,7 +99,7 @@ export class Enemy {
     this.tileY = newY;
 
     // Анимация бега
-    this.sprite.play('enemy_run');
+    this.sprite.play(`${this.enemyType}_run`);
 
     const targetPixelX = newX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
     const targetPixelY = newY * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
@@ -109,7 +112,7 @@ export class Enemy {
       ease: 'Power2',
       onComplete: () => {
         this.isMoving = false;
-        this.sprite.play('enemy_idle');
+        this.sprite.play(`${this.enemyType}_idle`);
       },
     });
   }

@@ -5,13 +5,13 @@ import { Coin } from '../entities/Coin';
 import { Enemy } from '../entities/Enemy';
 import { Exit } from '../entities/Exit';
 import { BeatManager } from '../systems/BeatManager';
-import { ComboSystem } from '../systems/ComboSystem';
+import { ComboSystem, LevelStats } from '../systems/ComboSystem';
 import { BeatIndicator } from '../ui/BeatIndicator';
 import { ComboDisplay } from '../ui/ComboDisplay';
 import { AudioManager } from '../systems/AudioManager';
 import { AudioVisualizer } from '../ui/AudioVisualizer';
 import { BpmResult } from '../systems/BpmDetector';
-import { Track } from './BootScene';
+import { Track, ENEMY_TYPES, FLOOR_TYPES, EnemyType, HeroType, BANNER_COLORS, FOUNTAIN_COLORS } from './BootScene';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -59,11 +59,19 @@ export class GameScene extends Phaser.Scene {
   private currentLevel: number = 1;
   private levelText!: Phaser.GameObjects.Text;
 
+  // Визуальное разнообразие
+  private currentEnemyType: EnemyType = 'imp';
+  private currentFloorType: string = 'floor_1';
+  private selectedHero: HeroType = 'wizzard_m';
+
   // UI текст
   private feedbackText!: Phaser.GameObjects.Text;
 
   // Визуализатор музыки
   private visualizer!: AudioVisualizer;
+
+  // Декорации
+  private decorations: Phaser.GameObjects.Sprite[] = [];
 
   constructor() {
     super({ key: 'GameScene' });
@@ -73,10 +81,21 @@ export class GameScene extends Phaser.Scene {
     this.currentLevel = data.level || 1;
     this.coins = [];
     this.enemies = [];
+    this.decorations = [];
     this.exit = null;
     this.isChaseMode = false;
     this.isGameStarted = false;
     this.isDead = false;
+
+    // Случайный тип врага для уровня
+    this.currentEnemyType = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)];
+
+    // Стиль пола по уровню (циклически)
+    this.currentFloorType = FLOOR_TYPES[(this.currentLevel - 1) % FLOOR_TYPES.length];
+
+    // Получаем выбранного героя из registry
+    const hero = this.registry.get('selectedCharacter') as HeroType | undefined;
+    this.selectedHero = hero || 'wizzard_m';
   }
 
   create(): void {
@@ -92,7 +111,7 @@ export class GameScene extends Phaser.Scene {
     // Создаём игрока в центре
     const centerX = Math.floor(GAME_CONFIG.ROOM_WIDTH / 2);
     const centerY = Math.floor(GAME_CONFIG.ROOM_HEIGHT / 2);
-    this.player = new Player(this, centerX, centerY);
+    this.player = new Player(this, centerX, centerY, this.selectedHero);
 
     // Спавним монеты и врагов (выход появится после сбора всех монет)
     this.spawnCoins();
@@ -303,10 +322,90 @@ export class GameScene extends Phaser.Scene {
           wall.setScale(2);
           wall.setDepth(1);
         } else {
-          const floor = this.add.sprite(pixelX, pixelY, 'floor');
+          const floor = this.add.sprite(pixelX, pixelY, this.currentFloorType);
           floor.setScale(2);
           floor.setDepth(0);
         }
+      }
+    }
+
+    // Добавляем декор на верхнюю стену
+    this.addWallDecorations();
+  }
+
+  private addWallDecorations(): void {
+    const tileSize = GAME_CONFIG.TILE_SIZE;
+    const topWallY = 0;
+
+    // Собираем позиции верхней стены (не угловые)
+    const wallPositions: number[] = [];
+    for (let x = 1; x < GAME_CONFIG.ROOM_WIDTH - 1; x++) {
+      if (this.roomMap[topWallY][x] === 1) {
+        wallPositions.push(x);
+      }
+    }
+
+    // Перемешиваем позиции
+    Phaser.Utils.Array.Shuffle(wallPositions);
+
+    // Добавляем 1-2 фонтана
+    const fountainCount = Phaser.Math.Between(1, 2);
+    const fountainColor = FOUNTAIN_COLORS[Math.floor(Math.random() * FOUNTAIN_COLORS.length)];
+
+    for (let i = 0; i < fountainCount && i < wallPositions.length; i++) {
+      const x = wallPositions[i];
+      const pixelX = x * tileSize + tileSize / 2;
+      const pixelY = topWallY * tileSize + tileSize / 2;
+
+      // Верхняя часть фонтана (вода)
+      const fountainMid = this.add.sprite(pixelX, pixelY - 8, `fountain_mid_${fountainColor}_0`);
+      fountainMid.setScale(2);
+      fountainMid.setDepth(2);
+      fountainMid.play(`fountain_mid_${fountainColor}`);
+      this.decorations.push(fountainMid);
+
+      // Нижняя часть (бассейн) - рисуется на следующем ряду
+      if (this.roomMap[topWallY + 1] && this.roomMap[topWallY + 1][x] === 0) {
+        const basinPixelY = (topWallY + 1) * tileSize + tileSize / 2 - 8;
+        const fountainBasin = this.add.sprite(pixelX, basinPixelY, `fountain_basin_${fountainColor}_0`);
+        fountainBasin.setScale(2);
+        fountainBasin.setDepth(2);
+        fountainBasin.play(`fountain_basin_${fountainColor}`);
+        this.decorations.push(fountainBasin);
+      }
+    }
+
+    // Добавляем 2-4 баннера на оставшиеся позиции
+    const bannerCount = Phaser.Math.Between(2, 4);
+    const startIdx = fountainCount;
+
+    for (let i = 0; i < bannerCount && startIdx + i < wallPositions.length; i++) {
+      const x = wallPositions[startIdx + i];
+      const pixelX = x * tileSize + tileSize / 2;
+      const pixelY = topWallY * tileSize + tileSize / 2 + 4;
+
+      const bannerColor = BANNER_COLORS[Math.floor(Math.random() * BANNER_COLORS.length)];
+      const banner = this.add.sprite(pixelX, pixelY, `banner_${bannerColor}`);
+      banner.setScale(2);
+      banner.setDepth(2);
+      this.decorations.push(banner);
+    }
+
+    // Добавляем колонны по углам
+    const cornerPositions = [
+      { x: 1, y: 1 },
+      { x: GAME_CONFIG.ROOM_WIDTH - 2, y: 1 },
+    ];
+
+    for (const pos of cornerPositions) {
+      if (this.roomMap[pos.y]?.[pos.x] === 0) {
+        const pixelX = pos.x * tileSize + tileSize / 2;
+        const pixelY = pos.y * tileSize + tileSize / 2;
+
+        const column = this.add.sprite(pixelX, pixelY, 'column');
+        column.setScale(2);
+        column.setDepth(3);
+        this.decorations.push(column);
       }
     }
   }
@@ -387,30 +486,33 @@ export class GameScene extends Phaser.Scene {
 
     enemyConfigs.forEach(config => {
       if (this.roomMap[config.start.y]?.[config.start.x] === 0) {
-        this.enemies.push(new Enemy(this, config.start.x, config.start.y, config.patrol));
+        this.enemies.push(new Enemy(this, config.start.x, config.start.y, config.patrol, this.currentEnemyType));
       }
     });
   }
 
   private spawnExit(): void {
-    // Выход в правом нижнем углу (или рандомно)
-    let x = GAME_CONFIG.ROOM_WIDTH - 2;
-    let y = GAME_CONFIG.ROOM_HEIGHT - 2;
+    const playerX = this.player.getTileX();
+    const playerY = this.player.getTileY();
+    const minDistance = 3;
 
-    // Если занято стеной, ищем свободное место
-    if (this.roomMap[y][x] !== 0) {
-      for (let iy = GAME_CONFIG.ROOM_HEIGHT - 2; iy >= 1; iy--) {
-        for (let ix = GAME_CONFIG.ROOM_WIDTH - 2; ix >= 1; ix--) {
-          if (this.roomMap[iy][ix] === 0) {
-            x = ix;
-            y = iy;
-            break;
+    // Собираем все свободные клетки достаточно далеко от игрока
+    const validPositions: { x: number; y: number }[] = [];
+
+    for (let y = 1; y < GAME_CONFIG.ROOM_HEIGHT - 1; y++) {
+      for (let x = 1; x < GAME_CONFIG.ROOM_WIDTH - 1; x++) {
+        if (this.roomMap[y][x] === 0) {
+          const distance = Math.abs(x - playerX) + Math.abs(y - playerY);
+          if (distance >= minDistance) {
+            validPositions.push({ x, y });
           }
         }
       }
     }
 
-    this.exit = new Exit(this, x, y);
+    // Выбираем случайную позицию
+    const pos = Phaser.Utils.Array.GetRandom(validPositions);
+    this.exit = new Exit(this, pos.x, pos.y);
   }
 
   private checkExitReached(): void {
@@ -466,6 +568,261 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  private calculateGrade(accuracy: number): { grade: string; color: string; message: string } {
+    if (accuracy >= 95) return { grade: '★★★', color: '#ffd700', message: 'ИДЕАЛЬНО!' };
+    if (accuracy >= 85) return { grade: '★★', color: '#81c784', message: 'Отлично!' };
+    if (accuracy >= 70) return { grade: '★', color: '#4fc3f7', message: 'Хорошо!' };
+    if (accuracy >= 50) return { grade: '—', color: '#ffd54f', message: 'Неплохо' };
+    return { grade: '✗', color: '#e57373', message: 'Тренируйся!' };
+  }
+
+  private getSoCloseMessage(accuracy: number): string | null {
+    const thresholds = [
+      { min: 92, target: 95, label: '★★★' },
+      { min: 82, target: 85, label: '★★' },
+      { min: 67, target: 70, label: '★' },
+      { min: 47, target: 50, label: 'зачёта' },
+    ];
+
+    for (const t of thresholds) {
+      if (accuracy >= t.min && accuracy < t.target) {
+        const diff = Math.ceil(t.target - accuracy);
+        return `Почти до ${t.label}! Ещё ${diff}%!`;
+      }
+    }
+    return null;
+  }
+
+  private showLevelComplete(onComplete: () => void): void {
+    const stats = this.comboSystem.getStats();
+    const gradeInfo = this.calculateGrade(stats.accuracy);
+    const soCloseMsg = this.getSoCloseMessage(stats.accuracy);
+
+    const width = GAME_CONFIG.GAME_WIDTH;
+    const height = GAME_CONFIG.GAME_HEIGHT;
+
+    // Затемнение
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.85);
+    overlay.setDepth(199);
+    overlay.setAlpha(0);
+
+    this.tweens.add({
+      targets: overlay,
+      alpha: 1,
+      duration: 300,
+    });
+
+    // Контейнер для всех текстов
+    const container = this.add.container(0, 0);
+    container.setDepth(200);
+
+    // Заголовок
+    const titleText = this.add.text(width / 2, 35, `УРОВЕНЬ ${this.currentLevel} ПРОЙДЕН`, {
+      fontSize: '16px',
+      color: '#4fc3f7',
+      fontStyle: 'bold',
+    });
+    titleText.setOrigin(0.5);
+    titleText.setAlpha(0);
+    container.add(titleText);
+
+    // Линии статистики
+    const lines: { text: Phaser.GameObjects.Text; delay: number }[] = [];
+    let startY = 70;
+    const lineHeight = 22;
+
+    // Accuracy
+    const accuracyText = this.add.text(width / 2, startY, `Точность: ${stats.accuracy.toFixed(1)}%`, {
+      fontSize: '14px',
+      color: '#ffffff',
+    });
+    accuracyText.setOrigin(0.5);
+    accuracyText.setAlpha(0);
+    container.add(accuracyText);
+    lines.push({ text: accuracyText, delay: 200 });
+    startY += lineHeight;
+
+    // Разделитель
+    const divider1 = this.add.text(width / 2, startY, '───────────────', {
+      fontSize: '10px',
+      color: '#666666',
+    });
+    divider1.setOrigin(0.5);
+    divider1.setAlpha(0);
+    container.add(divider1);
+    lines.push({ text: divider1, delay: 300 });
+    startY += lineHeight - 5;
+
+    // Perfect
+    const perfectText = this.add.text(width / 2, startY, `Идеально: ${stats.perfect}`, {
+      fontSize: '12px',
+      color: '#81c784',
+    });
+    perfectText.setOrigin(0.5);
+    perfectText.setAlpha(0);
+    container.add(perfectText);
+    lines.push({ text: perfectText, delay: 400 });
+    startY += lineHeight - 4;
+
+    // Good
+    const goodText = this.add.text(width / 2, startY, `Хорошо: ${stats.good}`, {
+      fontSize: '12px',
+      color: '#ffd54f',
+    });
+    goodText.setOrigin(0.5);
+    goodText.setAlpha(0);
+    container.add(goodText);
+    lines.push({ text: goodText, delay: 500 });
+    startY += lineHeight - 4;
+
+    // Miss
+    const missText = this.add.text(width / 2, startY, `Промах: ${stats.miss}`, {
+      fontSize: '12px',
+      color: '#e57373',
+    });
+    missText.setOrigin(0.5);
+    missText.setAlpha(0);
+    container.add(missText);
+    lines.push({ text: missText, delay: 600 });
+    startY += lineHeight;
+
+    // Разделитель
+    const divider2 = this.add.text(width / 2, startY, '───────────────', {
+      fontSize: '10px',
+      color: '#666666',
+    });
+    divider2.setOrigin(0.5);
+    divider2.setAlpha(0);
+    container.add(divider2);
+    lines.push({ text: divider2, delay: 700 });
+    startY += lineHeight - 5;
+
+    // Max Combo
+    const comboText = this.add.text(width / 2, startY, `Макс. комбо: ${stats.maxCombo}`, {
+      fontSize: '12px',
+      color: '#ba68c8',
+    });
+    comboText.setOrigin(0.5);
+    comboText.setAlpha(0);
+    container.add(comboText);
+    lines.push({ text: comboText, delay: 800 });
+    startY += lineHeight + 10;
+
+    // Грейд (большой)
+    const gradeText = this.add.text(width / 2, startY + 5, gradeInfo.grade, {
+      fontSize: '40px',
+      color: gradeInfo.color,
+      fontStyle: 'bold',
+    });
+    gradeText.setOrigin(0.5);
+    gradeText.setAlpha(0);
+    gradeText.setScale(0.3);
+    container.add(gradeText);
+
+    // Сообщение грейда
+    const messageText = this.add.text(width / 2, startY + 40, gradeInfo.message, {
+      fontSize: '12px',
+      color: gradeInfo.color,
+    });
+    messageText.setOrigin(0.5);
+    messageText.setAlpha(0);
+    container.add(messageText);
+
+    // Анимируем заголовок
+    this.tweens.add({
+      targets: titleText,
+      alpha: 1,
+      duration: 300,
+    });
+
+    // Анимируем строки
+    lines.forEach(({ text, delay }) => {
+      this.tweens.add({
+        targets: text,
+        alpha: 1,
+        duration: 200,
+        delay,
+      });
+    });
+
+    // Анимируем грейд (последний, с эффектом scale)
+    this.time.delayedCall(1000, () => {
+      this.tweens.add({
+        targets: gradeText,
+        alpha: 1,
+        scale: 1,
+        duration: 400,
+        ease: 'Back.out',
+      });
+      this.tweens.add({
+        targets: messageText,
+        alpha: 1,
+        duration: 300,
+        delay: 200,
+      });
+    });
+
+    // "So close!" сообщение
+    if (soCloseMsg) {
+      const soCloseText = this.add.text(width / 2, height - 45, soCloseMsg, {
+        fontSize: '11px',
+        color: '#ffab91',
+        fontStyle: 'italic',
+      });
+      soCloseText.setOrigin(0.5);
+      soCloseText.setAlpha(0);
+      container.add(soCloseText);
+
+      this.time.delayedCall(1600, () => {
+        this.tweens.add({
+          targets: soCloseText,
+          alpha: 1,
+          duration: 300,
+        });
+        // Пульсация
+        this.tweens.add({
+          targets: soCloseText,
+          scale: 1.05,
+          duration: 500,
+          yoyo: true,
+          repeat: -1,
+        });
+      });
+    }
+
+    // Подсказка продолжения
+    const continueText = this.add.text(width / 2, height - 20, 'Нажми чтобы продолжить...', {
+      fontSize: '10px',
+      color: '#888888',
+    });
+    continueText.setOrigin(0.5);
+    continueText.setAlpha(0);
+    container.add(continueText);
+
+    this.time.delayedCall(2000, () => {
+      this.tweens.add({
+        targets: continueText,
+        alpha: 1,
+        duration: 300,
+      });
+      this.tweens.add({
+        targets: continueText,
+        alpha: 0.5,
+        duration: 600,
+        yoyo: true,
+        repeat: -1,
+      });
+
+      // Включаем интерактивность overlay
+      overlay.setInteractive();
+      overlay.on('pointerdown', () => {
+        container.destroy();
+        overlay.destroy();
+        onComplete();
+      });
+    });
+  }
+
   private nextLevel(): void {
     // Останавливаем и уничтожаем музыку (иначе при рестарте будет дублироваться)
     this.music.stop();
@@ -477,35 +834,11 @@ export class GameScene extends Phaser.Scene {
     this.registry.set('savedScore', this.comboSystem.getScore());
     this.registry.set('savedMaxCombo', this.comboSystem.getMaxCombo());
 
-    this.currentLevel++;
-
-    // Показываем сообщение
-    const levelText = this.add.text(
-      GAME_CONFIG.GAME_WIDTH / 2,
-      GAME_CONFIG.GAME_HEIGHT / 2,
-      `LEVEL ${this.currentLevel}`,
-      {
-        fontSize: '20px',
-        color: '#81c784',
-        fontStyle: 'bold',
-      }
-    );
-    levelText.setOrigin(0.5);
-    levelText.setDepth(200);
-
-    // Затемнение
-    const overlay = this.add.rectangle(
-      GAME_CONFIG.GAME_WIDTH / 2,
-      GAME_CONFIG.GAME_HEIGHT / 2,
-      GAME_CONFIG.GAME_WIDTH,
-      GAME_CONFIG.GAME_HEIGHT,
-      0x000000,
-      0.7
-    );
-    overlay.setDepth(199);
-
-    // Через секунду перезапускаем сцену
-    this.time.delayedCall(1000, () => {
+    // Показываем статистику уровня
+    this.showLevelComplete(() => {
+      // После просмотра статистики — переход на следующий уровень
+      this.currentLevel++;
+      this.comboSystem.resetLevelStats();
       this.scene.restart({ level: this.currentLevel });
     });
   }
@@ -531,7 +864,22 @@ export class GameScene extends Phaser.Scene {
     this.registry.set('savedScore', 0);
     this.registry.set('savedMaxCombo', 0);
 
-    // Показываем сообщение о смерти
+    // Затемнение (СНАЧАЛА overlay для корректной обработки кликов)
+    const overlay = this.add.rectangle(
+      GAME_CONFIG.GAME_WIDTH / 2,
+      GAME_CONFIG.GAME_HEIGHT / 2,
+      GAME_CONFIG.GAME_WIDTH,
+      GAME_CONFIG.GAME_HEIGHT,
+      0x000000,
+      0.7
+    );
+    overlay.setDepth(199);
+    overlay.setInteractive();
+    overlay.on('pointerdown', () => {
+      this.scene.restart();
+    });
+
+    // Показываем сообщение о смерти (ПОТОМ текст поверх)
     const deathText = this.add.text(
       GAME_CONFIG.GAME_WIDTH / 2,
       GAME_CONFIG.GAME_HEIGHT / 2,
@@ -545,23 +893,6 @@ export class GameScene extends Phaser.Scene {
     );
     deathText.setOrigin(0.5);
     deathText.setDepth(200);
-
-    // Затемнение
-    const overlay = this.add.rectangle(
-      GAME_CONFIG.GAME_WIDTH / 2,
-      GAME_CONFIG.GAME_HEIGHT / 2,
-      GAME_CONFIG.GAME_WIDTH,
-      GAME_CONFIG.GAME_HEIGHT,
-      0x000000,
-      0.7
-    );
-    overlay.setDepth(199);
-
-    // Рестарт по клику
-    overlay.setInteractive();
-    overlay.on('pointerdown', () => {
-      this.scene.restart();
-    });
   }
 
   private setupInput(): void {

@@ -28,7 +28,7 @@ export class TutorialScene extends Phaser.Scene {
     },
     {
       title: 'ГОТОВ?',
-      text: 'Нажми чтобы начать игру!\n\nУдачи!',
+      text: 'Выбери своего героя\nи отправляйся в подземелье!\n\nУдачи!',
     },
   ];
 
@@ -123,7 +123,7 @@ export class TutorialScene extends Phaser.Scene {
 
     // На последнем шаге меняем подсказку
     if (index === this.steps.length - 1) {
-      this.hintText.setText('Нажми чтобы играть!');
+      this.hintText.setText('Нажми чтобы выбрать героя!');
       this.hintText.setColor('#81c784');
     }
   }
@@ -132,10 +132,10 @@ export class TutorialScene extends Phaser.Scene {
     this.currentStep++;
 
     if (this.currentStep >= this.steps.length) {
-      // Переход к игре
+      // Переход к выбору персонажа
       this.cameras.main.fadeOut(300);
       this.time.delayedCall(300, () => {
-        this.scene.start('GameScene');
+        this.scene.start('CharacterSelectScene');
       });
     } else {
       this.showStep(this.currentStep);

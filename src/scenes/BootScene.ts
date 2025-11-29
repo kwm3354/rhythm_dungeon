@@ -4,6 +4,32 @@ import { BpmDetector } from '../systems/BpmDetector';
 
 const SPRITES_PATH = '/assets/sprites/0x72_DungeonTilesetII_v1.7/frames';
 
+// Все доступные герои
+export const HERO_TYPES = [
+  'wizzard_m', 'wizzard_f', 'knight_m', 'knight_f',
+  'elf_m', 'elf_f', 'dwarf_m', 'dwarf_f',
+  'lizard_m', 'lizard_f', 'angel',
+] as const;
+export type HeroType = typeof HERO_TYPES[number];
+
+// Все доступные враги (только те, у кого есть idle/run анимации)
+export const ENEMY_TYPES = [
+  'imp', 'goblin', 'skelet', 'tiny_zombie', 'chort',
+  'orc_warrior', 'orc_shaman', 'masked_orc', 'wogol',
+  'big_zombie', 'big_demon', 'ogre', 'pumpkin_dude',
+] as const;
+export type EnemyType = typeof ENEMY_TYPES[number];
+
+// Типы пола
+export const FLOOR_TYPES = [
+  'floor_1', 'floor_2', 'floor_3', 'floor_4',
+  'floor_5', 'floor_6', 'floor_7', 'floor_8',
+] as const;
+
+// Декор стен
+export const BANNER_COLORS = ['blue', 'green', 'red', 'yellow'] as const;
+export const FOUNTAIN_COLORS = ['blue', 'red'] as const;
+
 export interface Track {
   key: string;
   path: string;
@@ -13,7 +39,9 @@ export interface Track {
 }
 
 const TRACKS: Track[] = [
-  { key: 'track_2', path: '/assets/audio/track_2.mp3', title: 'Track 2', artist: 'Suno AI' },
+  { key: 'track_2', path: '/assets/audio/track_2.mp3', title: 'Track 2', artist: 'Suno AI', bpm: 100 },
+  { key: 'into_the_abyss', path: '/assets/audio/Into the Abyss.mp3', title: 'Into the Abyss', artist: 'Suno AI', bpm: 100 },
+  { key: 'through_the_shadowed_gates', path: '/assets/audio/Through the Shadowed Gates.mp3', title: 'Through the Shadowed Gates', artist: 'Suno AI', bpm: 100 },
 ];
 
 export class BootScene extends Phaser.Scene {
@@ -91,16 +119,20 @@ export class BootScene extends Phaser.Scene {
   }
 
   private loadSprites(): void {
-    // Игрок (wizzard_m) - idle и run анимации
-    for (let i = 0; i < 4; i++) {
-      this.load.image(`wizzard_m_idle_${i}`, `${SPRITES_PATH}/wizzard_m_idle_anim_f${i}.png`);
-      this.load.image(`wizzard_m_run_${i}`, `${SPRITES_PATH}/wizzard_m_run_anim_f${i}.png`);
+    // Загружаем всех героев (idle и run анимации)
+    for (const hero of HERO_TYPES) {
+      for (let i = 0; i < 4; i++) {
+        this.load.image(`${hero}_idle_${i}`, `${SPRITES_PATH}/${hero}_idle_anim_f${i}.png`);
+        this.load.image(`${hero}_run_${i}`, `${SPRITES_PATH}/${hero}_run_anim_f${i}.png`);
+      }
     }
 
-    // Враг (imp) - idle и run анимации
-    for (let i = 0; i < 4; i++) {
-      this.load.image(`imp_idle_${i}`, `${SPRITES_PATH}/imp_idle_anim_f${i}.png`);
-      this.load.image(`imp_run_${i}`, `${SPRITES_PATH}/imp_run_anim_f${i}.png`);
+    // Загружаем всех врагов (idle и run анимации)
+    for (const enemy of ENEMY_TYPES) {
+      for (let i = 0; i < 4; i++) {
+        this.load.image(`${enemy}_idle_${i}`, `${SPRITES_PATH}/${enemy}_idle_anim_f${i}.png`);
+        this.load.image(`${enemy}_run_${i}`, `${SPRITES_PATH}/${enemy}_run_anim_f${i}.png`);
+      }
     }
 
     // Монета - анимация
@@ -108,68 +140,88 @@ export class BootScene extends Phaser.Scene {
       this.load.image(`coin_${i}`, `${SPRITES_PATH}/coin_anim_f${i}.png`);
     }
 
-    // Пол
-    this.load.image('floor', `${SPRITES_PATH}/floor_1.png`);
+    // Все типы пола
+    for (const floor of FLOOR_TYPES) {
+      this.load.image(floor, `${SPRITES_PATH}/${floor}.png`);
+    }
 
     // Стены
     this.load.image('wall', `${SPRITES_PATH}/wall_mid.png`);
+
+    // Декор стен - баннеры
+    for (const color of BANNER_COLORS) {
+      this.load.image(`banner_${color}`, `${SPRITES_PATH}/wall_banner_${color}.png`);
+    }
+
+    // Декор стен - фонтаны (анимированные)
+    for (const color of FOUNTAIN_COLORS) {
+      for (let i = 0; i < 3; i++) {
+        this.load.image(`fountain_basin_${color}_${i}`, `${SPRITES_PATH}/wall_fountain_basin_${color}_anim_f${i}.png`);
+        this.load.image(`fountain_mid_${color}_${i}`, `${SPRITES_PATH}/wall_fountain_mid_${color}_anim_f${i}.png`);
+      }
+    }
+
+    // Колонны
+    this.load.image('column', `${SPRITES_PATH}/column.png`);
 
     // Выход (лестница вниз)
     this.load.image('exit', `${SPRITES_PATH}/floor_stairs.png`);
   }
 
   private createAnimations(): void {
-    // Игрок idle
-    this.anims.create({
-      key: 'player_idle',
-      frames: [
-        { key: 'wizzard_m_idle_0' },
-        { key: 'wizzard_m_idle_1' },
-        { key: 'wizzard_m_idle_2' },
-        { key: 'wizzard_m_idle_3' },
-      ],
-      frameRate: 8,
-      repeat: -1,
-    });
+    // Создаём анимации для всех героев
+    for (const hero of HERO_TYPES) {
+      this.anims.create({
+        key: `${hero}_idle`,
+        frames: [
+          { key: `${hero}_idle_0` },
+          { key: `${hero}_idle_1` },
+          { key: `${hero}_idle_2` },
+          { key: `${hero}_idle_3` },
+        ],
+        frameRate: 8,
+        repeat: -1,
+      });
 
-    // Игрок run
-    this.anims.create({
-      key: 'player_run',
-      frames: [
-        { key: 'wizzard_m_run_0' },
-        { key: 'wizzard_m_run_1' },
-        { key: 'wizzard_m_run_2' },
-        { key: 'wizzard_m_run_3' },
-      ],
-      frameRate: 10,
-      repeat: -1,
-    });
+      this.anims.create({
+        key: `${hero}_run`,
+        frames: [
+          { key: `${hero}_run_0` },
+          { key: `${hero}_run_1` },
+          { key: `${hero}_run_2` },
+          { key: `${hero}_run_3` },
+        ],
+        frameRate: 10,
+        repeat: -1,
+      });
+    }
 
-    // Враг idle
-    this.anims.create({
-      key: 'enemy_idle',
-      frames: [
-        { key: 'imp_idle_0' },
-        { key: 'imp_idle_1' },
-        { key: 'imp_idle_2' },
-        { key: 'imp_idle_3' },
-      ],
-      frameRate: 8,
-      repeat: -1,
-    });
+    // Создаём анимации для всех врагов
+    for (const enemy of ENEMY_TYPES) {
+      this.anims.create({
+        key: `${enemy}_idle`,
+        frames: [
+          { key: `${enemy}_idle_0` },
+          { key: `${enemy}_idle_1` },
+          { key: `${enemy}_idle_2` },
+          { key: `${enemy}_idle_3` },
+        ],
+        frameRate: 8,
+        repeat: -1,
+      });
 
-    // Враг run
-    this.anims.create({
-      key: 'enemy_run',
-      frames: [
-        { key: 'imp_run_0' },
-        { key: 'imp_run_1' },
-        { key: 'imp_run_2' },
-        { key: 'imp_run_3' },
-      ],
-      frameRate: 10,
-      repeat: -1,
-    });
+      this.anims.create({
+        key: `${enemy}_run`,
+        frames: [
+          { key: `${enemy}_run_0` },
+          { key: `${enemy}_run_1` },
+          { key: `${enemy}_run_2` },
+          { key: `${enemy}_run_3` },
+        ],
+        frameRate: 10,
+        repeat: -1,
+      });
+    }
 
     // Монета
     this.anims.create({
@@ -183,6 +235,31 @@ export class BootScene extends Phaser.Scene {
       frameRate: 8,
       repeat: -1,
     });
+
+    // Анимации фонтанов
+    for (const color of FOUNTAIN_COLORS) {
+      this.anims.create({
+        key: `fountain_basin_${color}`,
+        frames: [
+          { key: `fountain_basin_${color}_0` },
+          { key: `fountain_basin_${color}_1` },
+          { key: `fountain_basin_${color}_2` },
+        ],
+        frameRate: 6,
+        repeat: -1,
+      });
+
+      this.anims.create({
+        key: `fountain_mid_${color}`,
+        frames: [
+          { key: `fountain_mid_${color}_0` },
+          { key: `fountain_mid_${color}_1` },
+          { key: `fountain_mid_${color}_2` },
+        ],
+        frameRate: 6,
+        repeat: -1,
+      });
+    }
   }
 
   private showLoadingProgress(): void {

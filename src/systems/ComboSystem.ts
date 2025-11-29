@@ -1,9 +1,23 @@
 export type ComboCallback = (combo: number, multiplier: number) => void;
 
+export interface LevelStats {
+  perfect: number;
+  good: number;
+  miss: number;
+  total: number;
+  accuracy: number;
+  maxCombo: number;
+}
+
 export class ComboSystem {
   private combo: number = 0;
   private maxCombo: number = 0;
   private score: number = 0;
+
+  // Трекинг попаданий для статистики уровня
+  private perfectHits: number = 0;
+  private goodHits: number = 0;
+  private totalMoves: number = 0;
 
   private onComboChangeCallbacks: ComboCallback[] = [];
   private onComboBreakCallbacks: (() => void)[] = [];
@@ -23,6 +37,14 @@ export class ComboSystem {
    */
   hit(quality: 'perfect' | 'good'): void {
     this.combo++;
+    this.totalMoves++;
+
+    if (quality === 'perfect') {
+      this.perfectHits++;
+    } else {
+      this.goodHits++;
+    }
+
     if (this.combo > this.maxCombo) {
       this.maxCombo = this.combo;
     }
@@ -38,6 +60,8 @@ export class ComboSystem {
    * Регистрирует промах - сбрасывает комбо
    */
   miss(): void {
+    this.totalMoves++;
+
     if (this.combo > 0) {
       this.onComboBreakCallbacks.forEach(cb => cb());
     }
@@ -90,5 +114,35 @@ export class ComboSystem {
     this.combo = 0;
     this.maxCombo = 0;
     this.score = 0;
+    this.perfectHits = 0;
+    this.goodHits = 0;
+    this.totalMoves = 0;
+  }
+
+  /**
+   * Возвращает статистику уровня
+   */
+  getStats(): LevelStats {
+    const total = this.totalMoves;
+    const hits = this.perfectHits + this.goodHits;
+    return {
+      perfect: this.perfectHits,
+      good: this.goodHits,
+      miss: total - hits,
+      total,
+      accuracy: total > 0 ? (hits / total) * 100 : 100,
+      maxCombo: this.maxCombo,
+    };
+  }
+
+  /**
+   * Сбрасывает статистику уровня (но не score и maxCombo)
+   */
+  resetLevelStats(): void {
+    this.perfectHits = 0;
+    this.goodHits = 0;
+    this.totalMoves = 0;
+    this.combo = 0;
+    // НЕ сбрасываем score и maxCombo — они накопительные
   }
 }
