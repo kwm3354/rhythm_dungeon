@@ -9,6 +9,7 @@ export class BeatManager {
   private beatInterval: number;   // ms между битами
   private hitWindowMain: number;  // ±ms для основных битов (больше)
   private hitWindowHalf: number;  // ±ms для полу-битов (меньше)
+  private beatOffsetMs: number;   // offset первого бита в ms
 
   private startTime: number = 0;
   private lastBeatTime: number = 0;
@@ -17,16 +18,18 @@ export class BeatManager {
 
   private onBeatCallbacks: BeatCallback[] = [];
 
-  constructor(scene: Phaser.Scene, bpm: number = GAME_CONFIG.DEFAULT_BPM) {
+  constructor(scene: Phaser.Scene, bpm: number = GAME_CONFIG.DEFAULT_BPM, beatOffsetSec: number = 0) {
     this.scene = scene;
     this.bpm = bpm;
     this.beatInterval = (60 / bpm) * 1000; // Конвертируем BPM в миллисекунды
     this.hitWindowMain = GAME_CONFIG.HIT_WINDOW_MS * 2; // 150ms для основных битов
     this.hitWindowHalf = GAME_CONFIG.HIT_WINDOW_MS;     // 75ms для полу-битов
+    this.beatOffsetMs = beatOffsetSec * 1000;           // Конвертируем секунды в ms
   }
 
   start(): void {
-    this.startTime = performance.now();
+    // Учитываем offset первого бита для синхронизации с музыкой
+    this.startTime = performance.now() - this.beatOffsetMs;
     this.lastBeatTime = this.startTime;
     this.beatCount = 0;
     this.isRunning = true;
@@ -66,7 +69,7 @@ export class BeatManager {
    * Поддерживает движение на восьмых нотах (2x скорость)
    * @returns объект с информацией о попадании
    */
-  checkBeatTiming(): { isOnBeat: boolean; offset: number; quality: 'perfect' | 'good' | 'miss' } {
+  checkBeatTiming(): { isOnBeat: boolean; offset: number; quality: 'perfect' | 'good' | 'miss'; isMainBeat: boolean } {
     const now = performance.now();
     const halfBeat = this.beatInterval / 2;
     const timeSinceLastBeat = now - this.lastBeatTime;
@@ -102,11 +105,11 @@ export class BeatManager {
 
     // Определяем качество попадания
     if (distanceToNearest <= hitWindow / 4) {
-      return { isOnBeat: true, offset, quality: 'perfect' };
+      return { isOnBeat: true, offset, quality: 'perfect', isMainBeat };
     } else if (distanceToNearest <= hitWindow) {
-      return { isOnBeat: true, offset, quality: 'good' };
+      return { isOnBeat: true, offset, quality: 'good', isMainBeat };
     } else {
-      return { isOnBeat: false, offset, quality: 'miss' };
+      return { isOnBeat: false, offset, quality: 'miss', isMainBeat };
     }
   }
 
@@ -152,5 +155,9 @@ export class BeatManager {
 
   isActive(): boolean {
     return this.isRunning;
+  }
+
+  getBeatCount(): number {
+    return this.beatCount;
   }
 }

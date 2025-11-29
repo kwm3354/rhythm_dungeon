@@ -8,6 +8,12 @@ export class ComboSystem {
   private onComboChangeCallbacks: ComboCallback[] = [];
   private onComboBreakCallbacks: (() => void)[] = [];
 
+  constructor(initialScore: number = 0, initialMaxCombo: number = 0) {
+    this.score = initialScore;
+    this.maxCombo = initialMaxCombo;
+    // combo сбрасывается на новом уровне (начинаем с 0)
+  }
+
   // Очки за попадание
   private readonly PERFECT_POINTS = 100;
   private readonly GOOD_POINTS = 50;

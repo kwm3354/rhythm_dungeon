@@ -1,7 +1,20 @@
 import Phaser from 'phaser';
 import { GAME_CONFIG } from '../config';
+import { BpmDetector } from '../systems/BpmDetector';
 
 const SPRITES_PATH = '/assets/sprites/0x72_DungeonTilesetII_v1.7/frames';
+
+export interface Track {
+  key: string;
+  path: string;
+  title: string;
+  artist: string;
+  bpm?: number;  // Если указан - пропускаем автодетекцию
+}
+
+const TRACKS: Track[] = [
+  { key: 'track_2', path: '/assets/audio/track_2.mp3', title: 'Track 2', artist: 'Suno AI' },
+];
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -15,16 +28,66 @@ export class BootScene extends Phaser.Scene {
     // Загружаем спрайты
     this.loadSprites();
 
-    // Загружаем музыку
-    this.load.audio('music', '/assets/audio/music.ogg');
+    // Загружаем SFX
+    this.loadSfx();
+
+    // Загружаем все треки
+    TRACKS.forEach(track => {
+      this.load.audio(track.key, track.path);
+    });
   }
 
-  create(): void {
+  async create(): Promise<void> {
     // Создаём анимации
     this.createAnimations();
 
+    // Выбираем случайный трек
+    const selectedTrack = TRACKS[Math.floor(Math.random() * TRACKS.length)];
+    this.registry.set('selectedTrack', selectedTrack);
+
+    // Анализируем BPM выбранного трека
+    await this.analyzeBpm(selectedTrack);
+
     // Переходим к обучению
     this.scene.start('TutorialScene');
+  }
+
+  private async analyzeBpm(track: Track): Promise<void> {
+    // Если BPM указан в треке — используем его, пропускаем детекцию
+    if (track.bpm) {
+      this.registry.set('bpmResult', {
+        bpm: track.bpm,
+        offset: 0,
+        confidence: 'high',
+      });
+      console.log(`Track: "${track.title}" by ${track.artist}`);
+      console.log(`BPM preset: ${track.bpm}`);
+      return;
+    }
+
+    // Иначе — автодетекция
+    try {
+      const audioBuffer = await BpmDetector.getAudioBuffer(track.path);
+      const bpmResult = await BpmDetector.detect(audioBuffer);
+
+      this.registry.set('bpmResult', bpmResult);
+      console.log(`Track: "${track.title}" by ${track.artist}`);
+      console.log(`BPM detected: ${bpmResult.bpm} (confidence: ${bpmResult.confidence}, offset: ${bpmResult.offset.toFixed(3)}s)`);
+    } catch (error) {
+      console.warn('BPM analysis failed, using default:', error);
+      this.registry.set('bpmResult', {
+        bpm: GAME_CONFIG.DEFAULT_BPM,
+        offset: 0,
+        confidence: 'low',
+      });
+    }
+  }
+
+  private loadSfx(): void {
+    this.load.audio('sfx_kick', '/assets/audio/sfx/kick_electronic.wav');
+    this.load.audio('sfx_snare', '/assets/audio/sfx/snare.wav');
+    this.load.audio('sfx_hihat', '/assets/audio/sfx/hihat.wav');
+    this.load.audio('sfx_coin', '/assets/audio/sfx/coin.wav');
   }
 
   private loadSprites(): void {

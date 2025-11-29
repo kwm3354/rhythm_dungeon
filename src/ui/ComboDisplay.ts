@@ -14,8 +14,8 @@ export class ComboDisplay {
     this.scene = scene;
     this.comboSystem = comboSystem;
 
-    // Счёт в правом верхнем углу
-    this.scoreText = scene.add.text(GAME_CONFIG.GAME_WIDTH - 5, 5, '0', {
+    // Счёт в правом верхнем углу (показываем начальный счёт)
+    this.scoreText = scene.add.text(GAME_CONFIG.GAME_WIDTH - 5, 5, comboSystem.getScore().toString(), {
       fontSize: '12px',
       color: '#ffffff',
       fontStyle: 'bold',

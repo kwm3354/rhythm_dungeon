@@ -10,6 +10,8 @@ import { BeatIndicator } from '../ui/BeatIndicator';
 import { ComboDisplay } from '../ui/ComboDisplay';
 import { AudioManager } from '../systems/AudioManager';
 import { AudioVisualizer } from '../ui/AudioVisualizer';
+import { BpmResult } from '../systems/BpmDetector';
+import { Track } from './BootScene';
 
 export class GameScene extends Phaser.Scene {
   private player!: Player;
@@ -50,6 +52,9 @@ export class GameScene extends Phaser.Scene {
   // Режим погони (после сбора всех монет)
   private isChaseMode: boolean = false;
 
+  // Флаг смерти
+  private isDead: boolean = false;
+
   // Уровень
   private currentLevel: number = 1;
   private levelText!: Phaser.GameObjects.Text;
@@ -71,6 +76,7 @@ export class GameScene extends Phaser.Scene {
     this.exit = null;
     this.isChaseMode = false;
     this.isGameStarted = false;
+    this.isDead = false;
   }
 
   create(): void {
@@ -92,18 +98,31 @@ export class GameScene extends Phaser.Scene {
     this.spawnCoins();
     this.spawnEnemies();
 
-    // BPM фиксированный (трек тот же)
-    this.currentBPM = GAME_CONFIG.DEFAULT_BPM;
+    // Получаем BPM и выбранный трек из registry (определены в BootScene)
+    const bpmResult = this.registry.get('bpmResult') as BpmResult | undefined;
+    const selectedTrack = this.registry.get('selectedTrack') as Track | undefined;
+    this.currentBPM = bpmResult?.bpm ?? GAME_CONFIG.DEFAULT_BPM;
+    const beatOffset = bpmResult?.offset ?? 0;
 
-    // Инициализируем системы
-    this.beatManager = new BeatManager(this, this.currentBPM);
+    // Инициализируем системы с определённым BPM и offset
+    this.beatManager = new BeatManager(this, this.currentBPM, beatOffset);
     this.beatIndicator = new BeatIndicator(this, this.beatManager);
     this.audioManager = new AudioManager(this);
-    this.comboSystem = new ComboSystem();
+
+    // Восстанавливаем счёт и maxCombo из registry (сохранены при переходе на уровень)
+    const savedScore = this.registry.get('savedScore') as number | undefined;
+    const savedMaxCombo = this.registry.get('savedMaxCombo') as number | undefined;
+    this.comboSystem = new ComboSystem(savedScore ?? 0, savedMaxCombo ?? 0);
     this.comboDisplay = new ComboDisplay(this, this.comboSystem);
 
     // Создаём музыку (загружена в BootScene)
-    this.music = this.sound.add('music', { loop: true, volume: 0.5 });
+    const trackKey = selectedTrack?.key ?? 'glacier';
+    this.music = this.sound.add(trackKey, { loop: true, volume: 0.5 });
+
+    // Показываем attribution трека
+    if (selectedTrack) {
+      this.showTrackAttribution(selectedTrack);
+    }
 
     // Подписываемся на бит
     this.beatManager.onBeat(() => this.onBeat());
@@ -115,8 +134,13 @@ export class GameScene extends Phaser.Scene {
     this.showControls();
     this.createFeedbackUI();
 
-    // Показываем стартовый overlay
-    this.createStartOverlay();
+    // На уровне 1 автостарт (звук уже разблокирован в туториале)
+    // На уровнях 2+ показываем overlay с подтверждением
+    if (this.currentLevel === 1) {
+      this.startGame();
+    } else {
+      this.createStartOverlay();
+    }
   }
 
   update(): void {
@@ -192,14 +216,14 @@ export class GameScene extends Phaser.Scene {
     bg.on('pointerdown', () => this.startGame());
 
     this.input.keyboard?.on('keydown', () => {
-      if (!this.isGameStarted) {
+      if (!this.isGameStarted && !this.isDead) {
         this.startGame();
       }
     });
   }
 
   private async startGame(): Promise<void> {
-    if (this.isGameStarted) return;
+    if (this.isGameStarted || this.isDead) return;
 
     // Разблокируем звуковую систему Phaser (критично для Firefox)
     await new Promise<void>((resolve) => {
@@ -212,14 +236,17 @@ export class GameScene extends Phaser.Scene {
 
     await this.audioManager.init();
 
-    this.tweens.add({
-      targets: this.startOverlay,
-      alpha: 0,
-      duration: 300,
-      onComplete: () => {
-        this.startOverlay.destroy();
-      },
-    });
+    // Убираем overlay если он был создан
+    if (this.startOverlay) {
+      this.tweens.add({
+        targets: this.startOverlay,
+        alpha: 0,
+        duration: 300,
+        onComplete: () => {
+          this.startOverlay.destroy();
+        },
+      });
+    }
 
     // Запускаем музыку
     this.music.play();
@@ -343,7 +370,6 @@ export class GameScene extends Phaser.Scene {
       if (!coin.isCollected() && coin.getTileX() === playerX && coin.getTileY() === playerY) {
         coin.collect();
         this.comboSystem.addScore(coin.value);
-        this.audioManager.playPickupSound();
       }
     });
   }
@@ -405,7 +431,8 @@ export class GameScene extends Phaser.Scene {
       this.isChaseMode = true;
       this.spawnExit();
       this.exit!.activate();
-      this.audioManager.playPickupSound(); // Звук активации
+      // Snare при активации режима погони
+      this.sound.play('sfx_snare', { volume: 0.3 });
       this.showChaseWarning();
     }
   }
@@ -440,10 +467,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   private nextLevel(): void {
-    // Останавливаем музыку и ритм
+    // Останавливаем и уничтожаем музыку (иначе при рестарте будет дублироваться)
     this.music.stop();
+    this.music.destroy();
     this.beatManager.stop();
     this.isGameStarted = false;
+
+    // Сохраняем счёт и maxCombo для следующего уровня
+    this.registry.set('savedScore', this.comboSystem.getScore());
+    this.registry.set('savedMaxCombo', this.comboSystem.getMaxCombo());
 
     this.currentLevel++;
 
@@ -490,8 +522,14 @@ export class GameScene extends Phaser.Scene {
   private onPlayerDeath(): void {
     // Останавливаем игру
     this.isGameStarted = false;
+    this.isDead = true;
     this.music.stop();
+    this.music.destroy();
     this.beatManager.stop();
+
+    // Очищаем сохранённый счёт (новая игра начнётся с нуля)
+    this.registry.set('savedScore', 0);
+    this.registry.set('savedMaxCombo', 0);
 
     // Показываем сообщение о смерти
     const deathText = this.add.text(
@@ -575,7 +613,12 @@ export class GameScene extends Phaser.Scene {
         this.comboSystem.hit(timing.quality as 'perfect' | 'good');
         this.showFeedback(timing.quality, timing.offset);
         this.beatIndicator.showHitFeedback(timing.quality);
-        this.audioManager.playHitSound(timing.quality);
+
+        // Играем kick на чётных битах музыки (чтобы не частило)
+        if (timing.isMainBeat && this.beatManager.getBeatCount() % 2 === 0) {
+          this.sound.play('sfx_kick', { volume: timing.quality === 'perfect' ? 0.3 : 0.2 });
+        }
+
         this.checkCoinCollection();
         this.updateExitState();
         this.checkExitReached();
@@ -590,7 +633,7 @@ export class GameScene extends Phaser.Scene {
       this.comboSystem.miss();
       this.showFeedback('miss', timing.offset);
       this.beatIndicator.showHitFeedback('miss');
-      this.audioManager.playHitSound('miss');
+      // При промахе — тишина (игрок не "достраивает" ритм)
     }
   }
 
@@ -615,6 +658,20 @@ export class GameScene extends Phaser.Scene {
       fontStyle: 'bold',
     });
     this.levelText.setDepth(100);
+  }
+
+  private showTrackAttribution(track: Track): void {
+    const attribution = this.add.text(
+      GAME_CONFIG.GAME_WIDTH - 5,
+      GAME_CONFIG.GAME_HEIGHT - 15,
+      `${track.title} — ${track.artist}`,
+      {
+        fontSize: '8px',
+        color: '#888888',
+      }
+    );
+    attribution.setOrigin(1, 0);
+    attribution.setDepth(100);
   }
 
   private createFeedbackUI(): void {
