@@ -27,7 +27,7 @@ export class Enemy {
     this.patrolPoints = patrolPoints;
     this.enemyType = enemyType;
 
-    const pixelX = startX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+    const pixelX = GAME_CONFIG.GAME_AREA_X + startX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
     const pixelY = startY * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
 
     this.sprite = scene.add.sprite(pixelX, pixelY, `${enemyType}_idle_0`);
@@ -101,7 +101,7 @@ export class Enemy {
     // Анимация бега
     this.sprite.play(`${this.enemyType}_run`);
 
-    const targetPixelX = newX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+    const targetPixelX = GAME_CONFIG.GAME_AREA_X + newX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
     const targetPixelY = newY * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
 
     this.scene.tweens.add({

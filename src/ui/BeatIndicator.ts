@@ -15,20 +15,20 @@ export class BeatIndicator {
     this.scene = scene;
     this.beatManager = beatManager;
 
-    // Полупрозрачный оверлей для пульсации всего экрана
+    // Полупрозрачный оверлей для пульсации игрового поля (не панели)
     this.pulseOverlay = scene.add.rectangle(
-      GAME_CONFIG.GAME_WIDTH / 2,
+      GAME_CONFIG.GAME_FIELD_WIDTH / 2,
       GAME_CONFIG.GAME_HEIGHT / 2,
-      GAME_CONFIG.GAME_WIDTH,
+      GAME_CONFIG.GAME_FIELD_WIDTH,
       GAME_CONFIG.GAME_HEIGHT,
       0xffffff,
       0
     );
     this.pulseOverlay.setDepth(50);
 
-    // Индикатор бита в углу
-    const indicatorX = GAME_CONFIG.GAME_WIDTH - 25;
-    const indicatorY = 25;
+    // Индикатор бита на правой панели (между комбо и BPM)
+    const indicatorX = GAME_CONFIG.GAME_WIDTH - GAME_CONFIG.PANEL_WIDTH / 2;
+    const indicatorY = 160; // Под комбо, над BPM
 
     // Фоновый круг
     this.beatCircle = scene.add.circle(indicatorX, indicatorY, 15, 0x333333);
@@ -73,8 +73,8 @@ export class BeatIndicator {
 
   private updateProgressArc(): void {
     const progress = this.beatManager.getBeatProgress();
-    const indicatorX = GAME_CONFIG.GAME_WIDTH - 25;
-    const indicatorY = 25;
+    const indicatorX = GAME_CONFIG.GAME_WIDTH - GAME_CONFIG.PANEL_WIDTH / 2;
+    const indicatorY = 160; // Под комбо, над BPM
     const radius = 15;
 
     this.progressArc.clear();

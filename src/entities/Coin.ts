@@ -15,7 +15,7 @@ export class Coin {
     this.tileX = tileX;
     this.tileY = tileY;
 
-    const pixelX = tileX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+    const pixelX = GAME_CONFIG.GAME_AREA_X + tileX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
     const pixelY = tileY * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
 
     this.sprite = scene.add.sprite(pixelX, pixelY, 'coin_0');

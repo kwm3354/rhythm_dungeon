@@ -1,43 +1,95 @@
 import Phaser from 'phaser';
 import { ComboSystem } from '../systems/ComboSystem';
 import { GAME_CONFIG } from '../config';
+import { SidePanel } from './SidePanel';
+import { Track } from '../scenes/BootScene';
+
+export interface ComboDisplayOptions {
+  level: number;
+  track?: Track;
+  bpm: number;
+}
 
 export class ComboDisplay {
   private scene: Phaser.Scene;
   private comboSystem: ComboSystem;
 
-  private comboText: Phaser.GameObjects.Text;
+  private levelText: Phaser.GameObjects.Text;
   private scoreText: Phaser.GameObjects.Text;
+  private comboText: Phaser.GameObjects.Text;
   private multiplierText: Phaser.GameObjects.Text;
+  private bpmText: Phaser.GameObjects.Text;
 
-  constructor(scene: Phaser.Scene, comboSystem: ComboSystem) {
+  constructor(scene: Phaser.Scene, comboSystem: ComboSystem, options: ComboDisplayOptions) {
     this.scene = scene;
     this.comboSystem = comboSystem;
 
-    // Счёт в правом верхнем углу (показываем начальный счёт)
-    this.scoreText = scene.add.text(GAME_CONFIG.GAME_WIDTH - 5, 5, comboSystem.getScore().toString(), {
-      fontSize: '12px',
+    // Создаём правую панель
+    const panel = new SidePanel(scene);
+    const panelX = panel.getX();
+
+    // === УРОВЕНЬ (сверху) ===
+    scene.add.text(panelX, 10, 'Уровень', {
+      fontSize: '10px',
+      color: '#888888',
+    }).setOrigin(0.5, 0).setDepth(100);
+
+    this.levelText = scene.add.text(panelX, 25, `${options.level}`, {
+      fontSize: '20px',
+      color: '#4fc3f7',
+      fontStyle: 'bold',
+    });
+    this.levelText.setOrigin(0.5, 0).setDepth(100);
+
+    // === СЧЁТ ===
+    scene.add.text(panelX, 55, 'Счёт', {
+      fontSize: '10px',
+      color: '#888888',
+    }).setOrigin(0.5, 0).setDepth(100);
+
+    this.scoreText = scene.add.text(panelX, 70, comboSystem.getScore().toString(), {
+      fontSize: '16px',
       color: '#ffffff',
       fontStyle: 'bold',
     });
-    this.scoreText.setOrigin(1, 0);
-    this.scoreText.setDepth(100);
+    this.scoreText.setOrigin(0.5, 0).setDepth(100);
 
-    // Комбо под счётом
-    this.comboText = scene.add.text(GAME_CONFIG.GAME_WIDTH - 5, 20, '', {
-      fontSize: '10px',
+    // === КОМБО ===
+    this.comboText = scene.add.text(panelX, 100, '', {
+      fontSize: '12px',
       color: '#4fc3f7',
     });
-    this.comboText.setOrigin(1, 0);
-    this.comboText.setDepth(100);
+    this.comboText.setOrigin(0.5, 0).setDepth(100);
 
     // Множитель
-    this.multiplierText = scene.add.text(GAME_CONFIG.GAME_WIDTH - 5, 33, '', {
-      fontSize: '8px',
+    this.multiplierText = scene.add.text(panelX, 118, '', {
+      fontSize: '14px',
       color: '#ffd54f',
+      fontStyle: 'bold',
     });
-    this.multiplierText.setOrigin(1, 0);
-    this.multiplierText.setDepth(100);
+    this.multiplierText.setOrigin(0.5, 0).setDepth(100);
+
+    // === BPM (под beat indicator) ===
+    this.bpmText = scene.add.text(panelX, 190, `${options.bpm} BPM`, {
+      fontSize: '12px',
+      color: '#4fc3f7',
+    });
+    this.bpmText.setOrigin(0.5, 0).setDepth(100);
+
+    // === ТРЕК (внизу панели) ===
+    if (options.track) {
+      scene.add.text(panelX, GAME_CONFIG.GAME_HEIGHT - 45, options.track.title, {
+        fontSize: '9px',
+        color: '#ffffff',
+        wordWrap: { width: 90 },
+        align: 'center',
+      }).setOrigin(0.5, 0).setDepth(100);
+
+      scene.add.text(panelX, GAME_CONFIG.GAME_HEIGHT - 25, options.track.artist, {
+        fontSize: '8px',
+        color: '#888888',
+      }).setOrigin(0.5, 0).setDepth(100);
+    }
 
     // Подписываемся на события
     comboSystem.onComboChange((combo, multiplier) => {
@@ -94,5 +146,12 @@ export class ComboDisplay {
   update(): void {
     // Обновляем счёт каждый кадр (на случай если добавились очки за монеты)
     this.scoreText.setText(this.comboSystem.getScore().toString());
+  }
+
+  /**
+   * Обновить отображение уровня
+   */
+  setLevel(level: number): void {
+    this.levelText.setText(`${level}`);
   }
 }

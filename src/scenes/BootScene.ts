@@ -39,9 +39,9 @@ export interface Track {
 }
 
 const TRACKS: Track[] = [
-  { key: 'track_2', path: '/assets/audio/track_2.mp3', title: 'Track 2', artist: 'Suno AI', bpm: 100 },
-  { key: 'into_the_abyss', path: '/assets/audio/Into the Abyss.mp3', title: 'Into the Abyss', artist: 'Suno AI', bpm: 100 },
-  { key: 'through_the_shadowed_gates', path: '/assets/audio/Through the Shadowed Gates.mp3', title: 'Through the Shadowed Gates', artist: 'Suno AI', bpm: 100 },
+  { key: 'Shadowed abyss', path: '/assets/audio/track_2.mp3', title: 'Shadowed abyss', artist: 'Suno AI', bpm: 100 },
+  { key: 'Into the abyss', path: '/assets/audio/Into the Abyss.mp3', title: 'Into the Abyss', artist: 'Suno AI', bpm: 90 },
+  { key: 'Through the shadowed gates', path: '/assets/audio/Through the Shadowed Gates.mp3', title: 'Through the Shadowed Gates', artist: 'Suno AI', bpm: 100 },
 ];
 
 export class BootScene extends Phaser.Scene {

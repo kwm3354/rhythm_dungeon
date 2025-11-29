@@ -132,16 +132,17 @@ export class GameScene extends Phaser.Scene {
     const savedScore = this.registry.get('savedScore') as number | undefined;
     const savedMaxCombo = this.registry.get('savedMaxCombo') as number | undefined;
     this.comboSystem = new ComboSystem(savedScore ?? 0, savedMaxCombo ?? 0);
-    this.comboDisplay = new ComboDisplay(this, this.comboSystem);
 
     // Создаём музыку (загружена в BootScene)
     const trackKey = selectedTrack?.key ?? 'glacier';
     this.music = this.sound.add(trackKey, { loop: true, volume: 0.5 });
 
-    // Показываем attribution трека
-    if (selectedTrack) {
-      this.showTrackAttribution(selectedTrack);
-    }
+    // Создаём ComboDisplay с панелью (передаём level, track, BPM)
+    this.comboDisplay = new ComboDisplay(this, this.comboSystem, {
+      level: this.currentLevel,
+      track: selectedTrack,
+      bpm: this.currentBPM,
+    });
 
     // Подписываемся на бит
     this.beatManager.onBeat(() => this.onBeat());
@@ -150,7 +151,6 @@ export class GameScene extends Phaser.Scene {
     this.setupInput();
 
     // UI
-    this.showControls();
     this.createFeedbackUI();
 
     // На уровне 1 автостарт (звук уже разблокирован в туториале)
@@ -311,10 +311,11 @@ export class GameScene extends Phaser.Scene {
 
   private drawRoom(): void {
     const tileSize = GAME_CONFIG.TILE_SIZE;
+    const offsetX = GAME_CONFIG.GAME_AREA_X;
 
     for (let y = 0; y < this.roomMap.length; y++) {
       for (let x = 0; x < this.roomMap[y].length; x++) {
-        const pixelX = x * tileSize + tileSize / 2;
+        const pixelX = offsetX + x * tileSize + tileSize / 2;
         const pixelY = y * tileSize + tileSize / 2;
 
         if (this.roomMap[y][x] === 1) {
@@ -335,6 +336,7 @@ export class GameScene extends Phaser.Scene {
 
   private addWallDecorations(): void {
     const tileSize = GAME_CONFIG.TILE_SIZE;
+    const offsetX = GAME_CONFIG.GAME_AREA_X;
     const topWallY = 0;
 
     // Собираем позиции верхней стены (не угловые)
@@ -354,7 +356,7 @@ export class GameScene extends Phaser.Scene {
 
     for (let i = 0; i < fountainCount && i < wallPositions.length; i++) {
       const x = wallPositions[i];
-      const pixelX = x * tileSize + tileSize / 2;
+      const pixelX = offsetX + x * tileSize + tileSize / 2;
       const pixelY = topWallY * tileSize + tileSize / 2;
 
       // Верхняя часть фонтана (вода)
@@ -381,7 +383,7 @@ export class GameScene extends Phaser.Scene {
 
     for (let i = 0; i < bannerCount && startIdx + i < wallPositions.length; i++) {
       const x = wallPositions[startIdx + i];
-      const pixelX = x * tileSize + tileSize / 2;
+      const pixelX = offsetX + x * tileSize + tileSize / 2;
       const pixelY = topWallY * tileSize + tileSize / 2 + 4;
 
       const bannerColor = BANNER_COLORS[Math.floor(Math.random() * BANNER_COLORS.length)];
@@ -399,7 +401,7 @@ export class GameScene extends Phaser.Scene {
 
     for (const pos of cornerPositions) {
       if (this.roomMap[pos.y]?.[pos.x] === 0) {
-        const pixelX = pos.x * tileSize + tileSize / 2;
+        const pixelX = offsetX + pos.x * tileSize + tileSize / 2;
         const pixelY = pos.y * tileSize + tileSize / 2;
 
         const column = this.add.sprite(pixelX, pixelY, 'column');
@@ -974,40 +976,11 @@ export class GameScene extends Phaser.Scene {
     return this.roomMap[y][x] === 0;
   }
 
-  private showControls(): void {
-    const text = this.add.text(5, 5, 'Move on the BEAT!', {
-      fontSize: '10px',
-      color: '#ffd54f',
-      fontStyle: 'bold',
-    });
-    text.setDepth(100);
-
-    // Уровень
-    this.levelText = this.add.text(5, GAME_CONFIG.GAME_HEIGHT - 15, `Level ${this.currentLevel}`, {
-      fontSize: '10px',
-      color: '#4fc3f7',
-      fontStyle: 'bold',
-    });
-    this.levelText.setDepth(100);
-  }
-
-  private showTrackAttribution(track: Track): void {
-    const attribution = this.add.text(
-      GAME_CONFIG.GAME_WIDTH - 5,
-      GAME_CONFIG.GAME_HEIGHT - 15,
-      `${track.title} — ${track.artist}`,
-      {
-        fontSize: '8px',
-        color: '#888888',
-      }
-    );
-    attribution.setOrigin(1, 0);
-    attribution.setDepth(100);
-  }
+  // showControls и showTrackAttribution удалены - всё в ComboDisplay
 
   private createFeedbackUI(): void {
     this.feedbackText = this.add.text(
-      GAME_CONFIG.GAME_WIDTH / 2,
+      GAME_CONFIG.GAME_AREA_X + GAME_CONFIG.GAME_FIELD_WIDTH / 2,
       GAME_CONFIG.GAME_HEIGHT - 30,
       '',
       {
@@ -1018,6 +991,7 @@ export class GameScene extends Phaser.Scene {
     );
     this.feedbackText.setOrigin(0.5);
     this.feedbackText.setDepth(100);
+    this.feedbackText.setStroke('#000000', 3);
   }
 
   private showFeedback(quality: 'perfect' | 'good' | 'miss', offset: number): void {

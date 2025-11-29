@@ -6,9 +6,16 @@ export const GAME_CONFIG = {
   ROOM_WIDTH: 13,  // тайлов
   ROOM_HEIGHT: 13, // тайлов
 
-  // Размеры игрового окна
+  // Правая панель UI
+  PANEL_WIDTH: 100,
+  GAME_AREA_X: 0, // Нет сдвига - только правая панель
+
+  // Размеры игрового окна (с учётом панели)
+  get GAME_FIELD_WIDTH() {
+    return this.TILE_SIZE * this.ROOM_WIDTH; // 416 - только игровое поле
+  },
   get GAME_WIDTH() {
-    return this.TILE_SIZE * this.ROOM_WIDTH;
+    return this.GAME_FIELD_WIDTH + this.PANEL_WIDTH; // 516 - с правой панелью
   },
   get GAME_HEIGHT() {
     return this.TILE_SIZE * this.ROOM_HEIGHT;

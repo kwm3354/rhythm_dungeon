@@ -14,7 +14,7 @@ export class Exit {
     this.tileX = tileX;
     this.tileY = tileY;
 
-    const pixelX = tileX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+    const pixelX = GAME_CONFIG.GAME_AREA_X + tileX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
     const pixelY = tileY * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
 
     // Свечение под порталом

@@ -17,7 +17,7 @@ export class Player extends Phaser.GameObjects.Sprite {
   private heroType: HeroType;
 
   constructor(scene: Phaser.Scene, gridX: number, gridY: number, heroType: HeroType = 'wizzard_m') {
-    const pixelX = gridX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+    const pixelX = GAME_CONFIG.GAME_AREA_X + gridX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
     const pixelY = gridY * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
 
     super(scene, pixelX, pixelY, `${heroType}_idle_0`);
@@ -94,7 +94,7 @@ export class Player extends Phaser.GameObjects.Sprite {
     // Анимация бега
     this.play(`${this.heroType}_run`);
 
-    const targetX = newGridX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
+    const targetX = GAME_CONFIG.GAME_AREA_X + newGridX * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
     const targetY = newGridY * GAME_CONFIG.TILE_SIZE + GAME_CONFIG.TILE_SIZE / 2;
 
     // Анимация перемещения
